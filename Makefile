@@ -1,6 +1,6 @@
 # makefile for vgp-tools/src containing library and core utilities
 
-DEST_DIR = ~/bin
+DEST_DIR = ./bin
 
 CFLAGS = -O3 -Wall -fPIC -Wextra -Wno-unused-result -fno-strict-aliasing -DNDEBUG # NDEBUG drops asserts
 #CFLAGS = -g -Wall -Wextra -fno-strict-aliasing  # for debugging
@@ -17,6 +17,7 @@ clean:
 	$(RM) -r *.dSYM
 
 install:
+	mkdir -p $(DEST_DIR)
 	cp $(PROGS) $(DEST_DIR)
 
 package:
