@@ -100,12 +100,12 @@ class ONEfile
 
   char      lineType() { return vf->lineType ; }
   int64_t   lineNumber() { return vf->line ; }
-  int64_t   givenCount(char lineType) { return vf->info[lineType]->given.count ; }
-  int64_t   givenMax(char lineType) { return vf->info[lineType]->given.max ; }
-  int64_t   givenTotal(char lineType) { return vf->info[lineType]->given.total ; }
-  int64_t   currentCount(char lineType) { return vf->info[lineType]->accum.count ; }
-  int64_t   currentMax(char lineType) { return vf->info[lineType]->accum.max ; }
-  int64_t   currentTotal(char lineType) { return vf->info[lineType]->accum.total ; }
+  int64_t   givenCount(unsigned char lineType) { return vf->info[lineType]->given.count ; }
+  int64_t   givenMax(unsigned char lineType) { return vf->info[lineType]->given.max ; }
+  int64_t   givenTotal(unsigned char lineType) { return vf->info[lineType]->given.total ; }
+  int64_t   currentCount(unsigned char lineType) { return vf->info[lineType]->accum.count ; }
+  int64_t   currentMax(unsigned char lineType) { return vf->info[lineType]->accum.max ; }
+  int64_t   currentTotal(unsigned char lineType) { return vf->info[lineType]->accum.total ; }
 } ;
 
 #ifdef TEST_HEADER
