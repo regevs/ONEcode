@@ -35,6 +35,7 @@ onefile.readLine()
 ```
 
 ### Test:
+A simple test:
 ```Python
 import ONEcode
 
@@ -53,6 +54,11 @@ print("Opened 1seq one with", onefile.givenCount('S'), "sequences")
 while onefile.readLine():
     if onefile.lineType() == 'S':
         print("Sequence length", onefile.length())
+```
+
+To run the test suite:
+```
+python -m unittest pyONElib-test.py
 ```
 
 ## Further work
