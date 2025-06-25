@@ -15,7 +15,11 @@ PYBIND11_MODULE(ONEcode, m) {
         .def(py::init<const std::string &, const std::string &, const ONEschema &, const std::string &, int>())
         .def(py::init<const std::string &, const std::string &, ONEfile &, int>())
         .def("checkSchemaText", &ONEfile::checkSchemaText)
-        .def("readLine", &ONEfile::readLine)
+        
+        // have readLine return a bool
+        .def("readLine", [](ONEfile &self) {
+            return (self.readLine() > 0);
+        })
         .def("length", &ONEfile::length)
         .def("getInt", &ONEfile::getInt)
         .def("setInt", &ONEfile::setInt)
