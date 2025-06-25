@@ -8,9 +8,13 @@ After installing, first compile the library:
 ```
 make
 ```
-Then compile the Python binding with:
+Then compile the Python binding. On linux:
 ```
 g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) pyONElib.cpp -o ONEcode$(python3-config --extension-suffix) ONElib.o
+```
+On macOS:
+```
+g++ -O3 -Wall -shared -std=c++11 -undefined dynamic_lookup $(python3 -m pybind11 --includes) pyONElib.cpp -o ONEcode$(python3-config --extension-suffix) ONElib.o
 ```
 This should result in a `.so` file.
 
