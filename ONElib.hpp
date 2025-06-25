@@ -75,7 +75,7 @@ class ONEfile
 
   bool      checkSchema (ONEschema &schema, bool isRequired)
   { return C_1F::oneFileCheckSchema (of, schema.os, isRequired) ; }
-  bool      checkSchemaText (const string &text)
+  bool      checkSchemaText (const str  
     { return C_1F::oneFileCheckSchemaText (of, text.c_str()) ; }
 
   char      readLine() { return C_1F::oneReadLine (of) ; }
