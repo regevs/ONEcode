@@ -7,7 +7,7 @@
  *  Copyright (C) Richard Durbin, Gene Myers, 2019-
  *
  * HISTORY:
- * Last edited: Aug 22 12:33 2024 (rd109)
+ * Last edited: Dec  1 01:00 2024 (rd109)
  * * Dec  3 06:01 2022 (rd109): remove oneWriteHeader(), switch to stdarg for oneWriteComment etc.
  *   * Dec 27 09:46 2019 (gene): style edits
  *   * Created: Sat Feb 23 10:12:43 2019 (rd109)
@@ -19,7 +19,6 @@
 
 #include <stdio.h>    // for FILE etc.
 #include <stdarg.h>   // for formatted writing in oneWriteComment(), oneAddProvenance()
-#include <inttypes.h> // for standard size int types and their PRI print macros
 #include <stdbool.h>  // for standard bool types
 #include <limits.h>   // for INT_MAX etc.
 #include <pthread.h>
@@ -150,8 +149,9 @@ typedef struct
 
     // these fields may be read by user - but don't change them!
 
-    char          *fileType;
-    char          *subType;
+    char          *fileName;           // name of file
+    char          *fileType;           // primary file type
+    char          *subType;            // secondary file type
     char           lineType;           // current lineType
     I64            line;               // current line number
     I64            byte;               // current byte position when writing binary
@@ -204,6 +204,11 @@ typedef struct
  *
  **********************************************************************************/
 
+char* oneErrorString  (void) ;
+
+  // Gives information on errors for routines that fail, e.g. if oneFileOpenRead() or
+  //   oneFileOpenWrite() returns NULL, or oneFileCheckSchema*() returns false.
+
 //  CREATING AND DESTROYING SCHEMAS
 
 OneSchema *oneSchemaCreateFromFile (const char *path) ;
@@ -239,7 +244,7 @@ OneSchema *oneSchemaCreateFromText (const char *text) ;
 
 void oneSchemaDestroy (OneSchema *schema) ;
 
-void oneFileWriteSchema (OneFile *of, char *filename) ;
+bool oneFileWriteSchema (OneFile *of, char *filename) ;
 
   // Utility to write the schema of an open oneFile in a form that can be read by
   //   oneSchemaCreateFromFile().
@@ -273,6 +278,8 @@ bool oneFileCheckSchemaText (OneFile *of, const char *textSchema) ;
   // This is provided to enable a program to ensure that its assumptions about data layout
   // are satisfied.
   // It is also used by oneFileOpenRead() with isRequired false to check consistency.
+
+// READING DATA:
 
 char oneReadLine (OneFile *of) ;
 
@@ -349,9 +356,9 @@ bool oneInheritDeferred   (OneFile *of, OneFile *source);
   // Add all provenance/reference/deferred entries in source to header of of.  Must be
   //   called before first call to oneWriteLine.
 
-bool oneAddProvenance (OneFile *of, char *prog, char *version, char *format, ...);
-bool oneAddReference  (OneFile *of, char *filename, I64 count);
-bool oneAddDeferred   (OneFile *of, char *filename);
+bool oneAddProvenance (OneFile *of, const char *prog, const char *version, char *format, ...);
+bool oneAddReference  (OneFile *of, const char *filename, I64 count);
+bool oneAddDeferred   (OneFile *of, const char *filename);
 
   // Append provenance/reference/deferred to header information.  Must be called before
   //   first call to oneWriteLine.
@@ -378,14 +385,50 @@ void oneWriteComment (OneFile *of, char *format, ...); // can not include newlin
 
   // Adds a comment to the current line. Extends line in ascii, adds special line type in binary.
 
-// CLOSING FILES (FOR BOTH READ & WRITE)
+// CLOSING FILES (FOR BOTH READ & WRITE):
 
 void oneFileClose (OneFile *of);
 
   // Close of (opened either for reading or writing). Finalizes counts, merges theaded files,
   // and writes footer if binary. Frees all non-user memory associated with of.
 
-//  GOTO & BUFFER MANAGEMENT
+//  FILE INFORMATION, GOTO & BUFFER MANAGEMENT:
+
+#define oneFileName(of) ((of)->fileName)
+
+  // The name of an open OneFile.
+
+bool  oneStats (OneFile *of, char lineType, I64 *count, I64 *max, I64 *total) ;
+
+  // Report number of lines of specified lineType, maximum list length, total list length.
+
+bool  oneStatsContains (OneFile *of, char objectType, char lineType, I64 *maxCount, I64 *maxTotal) ;
+
+  // Report the largest count of lineType within an objectType, and the highest total list length.
+
+#define oneObject(of,i)  ((of) && (of)->info[i] ? (of)->info[i]->accum.count : -1)
+
+  // Returns the number of the object of type lineType currently in.  Works in read
+  // or write mode. 0 if no objects of this type read/written yet. -1 if lineType illegal.
+
+bool oneGoto (OneFile *of, char lineType, I64 i);
+
+  // Goto just before the i'th object of type lineType in the file, so that the next oneReadLine()
+  // call will read its first line. This only works on binary files, which have an index.
+  // The first object is numbered 1. Setting i == 0 goes to the start of the data, i.e. the first
+  // data line of the file after the header. NB oneObject(of,lineType) will return (i-1) immediately
+  // after this call, and will only return i after a call to oneReadLine().
+
+I64 oneCountUntilNext (OneFile *of, char countType, char nextType) ;
+
+  // Returns the number of countType object lines before the next nextType object line.
+  // This can in most cases be used to find how many subobjects there are in a higher level
+  // group object, although the semantics do not precisely match those of oneStatsContains().
+  // Returns -1 on error, e.g. not reading a binary file, types are not object types.
+
+#define oneReferenceCount(of)   ((of)->info['<'] ? (of)->info['<']->accum.count : 0)
+
+  // Report how many references there are for this OneFile.
 
 void oneUserBuffer (OneFile *of, char lineType, void *buffer);
 
@@ -394,12 +437,6 @@ void oneUserBuffer (OneFile *of, char lineType, void *buffer);
   //   to revert to a default system buffer if 'buffer' = NULL.  The previous buffer
   //   (if any) is freed.  The user must ensure that a buffer they supply is large
   //   enough. BTW, this buffer is overwritten with each new line read of the given type.
-
-bool oneGoto (OneFile *of, char lineType, I64 i);
-
-  // Goto i'th object in the file. This only works on binary files, which have an index.
-  // The first object is numbered 1. Setting i == 0 goes to the first data line of the file
-  // after the header.
 
 /***********************************************************************************
  *

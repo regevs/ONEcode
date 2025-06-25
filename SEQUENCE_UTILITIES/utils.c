@@ -5,13 +5,13 @@
  * Description: core utility functions
  * Exported functions:
  * HISTORY:
- * Last edited: Aug 29 19:13 2024 (rd109)
+ * Last edited: Sep 29 18:31 2024 (rd109)
  * * Feb 22 14:52 2019 (rd109): added fzopen()
  * Created: Thu Aug 15 18:32:26 1996 (rd)
  *-------------------------------------------------------------------
  */
 
-#ifdef LINUX
+#ifdef __linux__
 #define _GNU_SOURCE
 #endif
 
@@ -58,23 +58,41 @@ void storeCommandLine (int argc, char **argv)
 
 char *getCommandLine (void) { return commandLine ; }
 
-long totalAllocated = 0 ;
+static unsigned long totalAllocated = 0 ;
+static unsigned long maxAllocated = 0 ;
 
 void *myalloc (size_t size)
 {
   void *p = (void*) malloc (size) ;
-  if (!p) die ("myalloc failure requesting %d bytes - totalAllocated %ld", size, totalAllocated) ;
+  if (!p) die ("myalloc failure requesting %d bytes - totalAllocated %lu", size, totalAllocated) ;
   totalAllocated += size ;
+  if (totalAllocated > maxAllocated) maxAllocated = totalAllocated ;
   return p ;
 }
 
 void *mycalloc (size_t number, size_t size)
 {
   void *p = (void*) calloc (number, size) ;
-  if (!p) die ("mycalloc failure requesting %d objects of size %d - totalAllocated %ld",
-	       number, size, totalAllocated) ;
+  if (!p)
+    die ("mycalloc failure requesting %ld objects of size %ld - totalAllocated %lu",
+	 number, size, totalAllocated) ;
   totalAllocated += size*number ;
+  if (totalAllocated > maxAllocated) maxAllocated = totalAllocated ;
   return p ;
+}
+
+void  myfree   (void* x, size_t size)
+{
+  totalAllocated -= size ;
+  if (x) free (x) ; // allows to reduce size
+}
+
+void *myresize (void* x, size_t nOld, size_t nNew, size_t size)
+{
+  void *z = mycalloc (nNew, size) ;
+  if (nOld < nNew) memcpy (z, x, nOld*size) ; else memcpy (z, x, nNew*size) ;
+  myfree (x, nOld*size) ;
+  return z ;
 }
 
 char *fgetword (FILE *f)
@@ -112,7 +130,7 @@ char *fgetword (FILE *f)
 
 FILE *fzopen(const char *path, const char *mode)
 {  /* very cool from https://stackoverflow.com/users/3306211/fernando-mut */
-#if defined(WITH_ZLIB) && (defined(MACOS) || defined(LINUX))
+#if defined(WITH_ZLIB)
   gzFile zfp = 0 ;			/* fernando said *zfp - makes me worry.... */
 
   if (strlen(path) > 3 && !strcmp(&path[strlen(path)-3], ".gz")) // only gzopen on .gz files
@@ -121,20 +139,20 @@ FILE *fzopen(const char *path, const char *mode)
   if (!zfp) return fopen(path,mode);
 
   /* open file pointer */
-#ifdef MACOS
+#ifdef __linux__
+  { cookie_io_functions_t io_funcs ;
+    io_funcs.read  = (void*) gzread ; // the void* are for cross-compiler happiness
+    io_funcs.write = (void*) gzwrite ;
+    io_funcs.seek  = (void*) gzseek ;
+    io_funcs.close = (void*) gzclose ;
+    return fopencookie (zfp, mode, io_funcs) ;
+  }
+#else // assume a Mac
   return funopen(zfp,
                  (int(*)(void*,char*,int))gzread,
                  (int(*)(void*,const char*,int))gzwrite,
                  (fpos_t(*)(void*,fpos_t,int))gzseek,
                  (int(*)(void*))gzclose) ;
-#else
-  { cookie_io_functions_t io_funcs ;
-    io_funcs.read = gzread ;
-    io_funcs.write = gzwrite ;
-    io_funcs.seek = gzseek ;
-    io_funcs.close = gzclose ;
-    return fopencookie (zfp, mode, io_funcs) ;
-  }
 #endif
 
 #else
@@ -217,8 +235,8 @@ void timeUpdate (FILE *f)
       secs = tNew.tv_sec - tOld.tv_sec ;
       usecs =  tNew.tv_usec - tOld.tv_usec ;
       if (usecs < 0) { usecs += 1000000 ; secs -= 1 ; }
-      fprintf (f, "\telapsed\t%d.%06d", secs, usecs) ;
-      fprintf (f, "\tallocated\t%.2f", totalAllocated/1000000000.0) ;
+      fprintf (f, "\telapsed %d.%06d", secs, usecs) ;
+      fprintf (f, "\talloc_max %lu", maxAllocated/1000000) ;
       fprintf (f, "\tmax_RSS\t%ld", rNew.ru_maxrss - rOld.ru_maxrss) ;
       fputc ('\n', f) ;
     }
