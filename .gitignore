@@ -7,3 +7,4 @@ utils.o
 *.so
 *.dSYM
 TEST/ZZ*
+.vscode
